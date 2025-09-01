@@ -54,6 +54,26 @@
       max-width: 500px;
     }
     
+    /* Notification permission button */
+    .notification-permission {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px 15px;
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      z-index: 30;
+    }
+    
+    .notification-permission:hover {
+      background: rgba(0, 0, 0, 0.8);
+    }
+    
     /* Initial state - input form */
     .timer-input {
       background: rgba(0, 0, 0, 0.7);
@@ -205,6 +225,13 @@
         font-size: 80px;
         padding: 25px 40px;
       }
+      
+      .notification-permission {
+        bottom: 10px;
+        right: 10px;
+        font-size: 12px;
+        padding: 8px 12px;
+      }
     }
     
     @media (max-width: 480px) {
@@ -260,6 +287,10 @@
       
       <div class="timer-display" id="timerDisplay">00:00:00</div>
     </div>
+    
+    <div class="notification-permission" id="notification-permission">
+      Enable Notifications
+    </div>
   </div>
 
   <!-- Three.js library -->
@@ -271,6 +302,50 @@
     let globeRotationActive = false;
     let countdownInterval;
     let totalSeconds = 0;
+    let notificationPermission = false;
+    
+    // Request notification permission
+    const notificationPermissionBtn = document.getElementById('notification-permission');
+    
+    notificationPermissionBtn.addEventListener('click', () => {
+      if ('Notification' in window) {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            notificationPermission = true;
+            notificationPermissionBtn.textContent = 'Notifications Enabled';
+            notificationPermissionBtn.style.background = 'rgba(76, 175, 80, 0.3)';
+            notificationPermissionBtn.style.borderColor = 'rgba(76, 175, 80, 0.5)';
+            
+            // Hide after 3 seconds
+            setTimeout(() => {
+              notificationPermissionBtn.style.opacity = '0.5';
+            }, 3000);
+          }
+        });
+      } else {
+        alert('This browser does not support desktop notifications');
+      }
+    });
+    
+    // Function to show notification
+    function showTimerCompleteNotification() {
+      if (!notificationPermission) return;
+      
+      const notification = new Notification('Timer Completed', {
+        body: 'Your timer has ended. Time to take a break! 🌟',
+        icon: 'https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg',
+        tag: 'globe-timer'
+      });
+      
+      notification.onclick = () => {
+        window.focus();
+      };
+      
+      // Close notification after 10 seconds
+      setTimeout(() => {
+        notification.close();
+      }, 10000);
+    }
     
     // Scene setup
     const scene = new THREE.Scene();
@@ -450,6 +525,9 @@
       timerDisplay.textContent = '00:00:00';
       timerDisplay.classList.add('timer-complete');
       
+      // Show desktop notification
+      showTimerCompleteNotification();
+      
       setTimeout(() => {
         timerDisplay.classList.remove('active', 'timer-complete');
         timerInput.classList.remove('hidden');
@@ -502,6 +580,15 @@
     // Initial setup
     handleResize();
     earthGroup.rotation.y = -0.5;
+    
+    // Check if notifications are already granted
+    if ('Notification' in window && Notification.permission === 'granted') {
+      notificationPermission = true;
+      notificationPermissionBtn.textContent = 'Notifications Enabled';
+      notificationPermissionBtn.style.background = 'rgba(76, 175, 80, 0.3)';
+      notificationPermissionBtn.style.borderColor = 'rgba(76, 175, 80, 0.5)';
+      notificationPermissionBtn.style.opacity = '0.5';
+    }
   </script>
 </body>
 </html>
