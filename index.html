@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Globe with Animated Timer</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      background: #0a0e17;
+      overflow: hidden;
+      height: 100vh;
+      font-family: 'Bebas Neue', cursive;
+      color: white;
+    }
+    
+    .container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    #globe-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+    
+    canvas {
+      display: block;
+    }
+    
+    .timer-ui {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 20;
+      width: 100%;
+      max-width: 500px;
+    }
+    
+    /* Initial state - input form */
+    .timer-input {
+      background: rgba(0, 0, 0, 0.7);
+      padding: 30px;
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.5s ease;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    
+    .timer-title {
+      font-size: 36px;
+      margin-bottom: 25px;
+      letter-spacing: 3px;
+      color: #ffffff;
+    }
+    
+    .input-group {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 25px;
+    }
+    
+    .time-input {
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      color: white;
+      padding: 15px;
+      font-family: 'Bebas Neue', cursive;
+      font-size: 28px;
+      width: 100px;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+    
+    .time-input:focus {
+      outline: none;
+      border-color: rgba(255, 255, 255, 0.5);
+      transform: scale(1.05);
+    }
+    
+    .time-input::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+    
+    .input-label {
+      display: block;
+      margin-top: 8px;
+      font-size: 18px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+    
+    .start-btn {
+      background: linear-gradient(to bottom, #ffffff, #cccccc);
+      color: #000000;
+      border: none;
+      border-radius: 12px;
+      padding: 15px 40px;
+      font-family: 'Bebas Neue', cursive;
+      font-size: 28px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+    }
+    
+    .start-btn:hover {
+      background: linear-gradient(to bottom, #eeeeee, #bbbbbb);
+      transform: translateY(-5px);
+      box-shadow: 0 12px 25px rgba(0, 0, 0, 0.5);
+    }
+    
+    .start-btn:active {
+      transform: translateY(2px);
+    }
+    
+    /* Active state - timer display */
+    .timer-display {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      font-size: 100px;
+      color: #ffffff;
+      letter-spacing: 4px;
+      padding: 30px 50px;
+      border-radius: 25px;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      opacity: 0;
+      transition: all 0.5s ease;
+      z-index: 10;
+      /* Curved effect to match globe */
+      transform: translate(-50%, -50%) scale(0) perspective(500px) rotateX(5deg);
+      box-shadow: 
+        0 15px 35px rgba(0, 0, 0, 0.5),
+        inset 0 0 20px rgba(255, 255, 255, 0.05);
+    }
+    
+    .timer-display.active {
+      transform: translate(-50%, -50%) scale(1) perspective(500px) rotateX(5deg);
+      opacity: 1;
+    }
+    
+    .timer-input.hidden {
+      opacity: 0;
+      transform: scale(0.8);
+      pointer-events: none;
+    }
+    
+    /* Completion animation */
+    @keyframes pulse {
+      0% { transform: translate(-50%, -50%) scale(1) perspective(500px) rotateX(5deg); }
+      50% { transform: translate(-50%, -50%) scale(1.05) perspective(500px) rotateX(5deg); }
+      100% { transform: translate(-50%, -50%) scale(1) perspective(500px) rotateX(5deg); }
+    }
+    
+    .timer-complete {
+      animation: pulse 1s infinite;
+      color: #ff3b30;
+    }
+    
+    /* Responsive design */
+    @media (max-width: 768px) {
+      .timer-ui {
+        max-width: 90%;
+      }
+      
+      .timer-title {
+        font-size: 32px;
+      }
+      
+      .time-input {
+        width: 90px;
+        font-size: 24px;
+        padding: 12px;
+      }
+      
+      .start-btn {
+        padding: 12px 30px;
+        font-size: 24px;
+      }
+      
+      .timer-display {
+        font-size: 80px;
+        padding: 25px 40px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .timer-title {
+        font-size: 28px;
+      }
+      
+      .input-group {
+        gap: 15px;
+      }
+      
+      .time-input {
+        width: 80px;
+        font-size: 22px;
+        padding: 10px;
+      }
+      
+      .input-label {
+        font-size: 16px;
+      }
+      
+      .start-btn {
+        padding: 10px 25px;
+        font-size: 22px;
+      }
+      
+      .timer-display {
+        font-size: 70px;
+        padding: 20px 30px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="globe-container"></div>
+    
+    <div class="timer-ui">
+      <div class="timer-input" id="timerInput">
+        <div class="timer-title">SET COUNTDOWN</div>
+        <div class="input-group">
+          <div>
+            <input type="number" id="hours" class="time-input" placeholder="00" min="0" max="99">
+            <div class="input-label">HOURS</div>
+          </div>
+          <div>
+            <input type="number" id="minutes" class="time-input" placeholder="00" min="0" max="59">
+            <div class="input-label">MINUTES</div>
+          </div>
+        </div>
+        <button class="start-btn" id="start-btn">START</button>
+      </div>
+      
+      <div class="timer-display" id="timerDisplay">00:00:00</div>
+    </div>
+  </div>
+
+  <!-- Three.js library -->
+  <script src="https://unpkg.com/three@0.148.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.148.0/examples/js/controls/OrbitControls.js"></script>
+
+  <script>
+    // Initialize variables
+    let globeRotationActive = false;
+    let countdownInterval;
+    let totalSeconds = 0;
+    
+    // Scene setup
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(
+      60,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+    camera.position.z = 2.2;
+
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.getElementById('globe-container').appendChild(renderer.domElement);
+
+    // Create the Earth group
+    const earthGroup = new THREE.Group();
+    scene.add(earthGroup);
+
+    // Load Earth textures
+    const textureLoader = new THREE.TextureLoader();
+    
+    // Surface texture (NASA Blue Marble)
+    const surfaceMap = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_atmos_2048.jpg');
+    
+    // Topography/bump map for 3D terrain effect
+    const bumpMap = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_normal_2048.jpg');
+    
+    // Specular map for water reflection
+    const specularMap = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg');
+
+    // Create the Earth sphere with proper materials
+    const geometry = new THREE.SphereGeometry(1, 64, 64);
+    
+    const material = new THREE.MeshPhongMaterial({
+      map: surfaceMap,
+      bumpMap: bumpMap,
+      bumpScale: 0.05, // Subtle topography effect
+      specularMap: specularMap,
+      specular: new THREE.Color(0x333333),
+      shininess: 5
+    });
+
+    const earth = new THREE.Mesh(geometry, material);
+    earthGroup.add(earth);
+
+    // Add clouds layer
+    const cloudGeometry = new THREE.SphereGeometry(1.01, 64, 64);
+    const cloudMap = textureLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_clouds_1024.png');
+    
+    const cloudMaterial = new THREE.MeshPhongMaterial({
+      map: cloudMap,
+      transparent: true,
+      opacity: 0.4
+    });
+
+    const clouds = new THREE.Mesh(cloudGeometry, cloudMaterial);
+    earthGroup.add(clouds);
+
+    // Lighting
+    const ambientLight = new THREE.AmbientLight(0x333333);
+    scene.add(ambientLight);
+
+    // Sunlight (directional light)
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1);
+    sunLight.position.set(2, 1, 3);
+    scene.add(sunLight);
+
+    // Create animated stars
+    function createStars() {
+      const starGeometry = new THREE.BufferGeometry();
+      const starCount = 5000;
+      const positions = new Float32Array(starCount * 3);
+      const colors = new Float32Array(starCount * 3);
+      const sizes = new Float32Array(starCount);
+      const velocities = new Float32Array(starCount);
+      
+      for (let i = 0; i < starCount; i++) {
+        // Random positions in a sphere
+        const radius = 50 + Math.random() * 950;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos((Math.random() * 2) - 1);
+        
+        const i3 = i * 3;
+        positions[i3] = radius * Math.sin(phi) * Math.cos(theta);
+        positions[i3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+        positions[i3 + 2] = radius * Math.cos(phi);
+        
+        // Random colors (mostly white with some blue tint)
+        colors[i3] = 0.8 + Math.random() * 0.2;
+        colors[i3 + 1] = 0.8 + Math.random() * 0.2;
+        colors[i3 + 2] = 0.9 + Math.random() * 0.1;
+        
+        // Random sizes
+        sizes[i] = Math.random() * 1.5;
+        
+        // Random velocities for twinkling effect
+        velocities[i] = Math.random() * 0.02;
+      }
+      
+      starGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      starGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      starGeometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+      starGeometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 1));
+      
+      const starMaterial = new THREE.PointsMaterial({
+        size: 1,
+        sizeAttenuation: true,
+        vertexColors: true,
+        transparent: true
+      });
+      
+      return new THREE.Points(starGeometry, starMaterial);
+    }
+    
+    const stars = createStars();
+    scene.add(stars);
+
+    // Timer functionality
+    const hoursInput = document.getElementById('hours');
+    const minutesInput = document.getElementById('minutes');
+    const startBtn = document.getElementById('start-btn');
+    const timerInput = document.getElementById('timerInput');
+    const timerDisplay = document.getElementById('timerDisplay');
+    
+    startBtn.addEventListener('click', startTimer);
+    
+    function startTimer() {
+      // Get input values
+      const hours = parseInt(hoursInput.value) || 0;
+      const minutes = parseInt(minutesInput.value) || 0;
+      
+      // Calculate total seconds
+      totalSeconds = hours * 3600 + minutes * 60;
+      
+      if (totalSeconds <= 0) {
+        alert('Please enter a valid time!');
+        return;
+      }
+      
+      // Start the globe rotation
+      globeRotationActive = true;
+      
+      // Hide input form and show timer display
+      timerInput.classList.add('hidden');
+      timerDisplay.classList.add('active');
+      
+      // Update timer display immediately
+      updateTimerDisplay();
+      
+      // Start countdown
+      countdownInterval = setInterval(() => {
+        totalSeconds--;
+        
+        if (totalSeconds <= 0) {
+          clearInterval(countdownInterval);
+          globeRotationActive = false;
+          timerComplete();
+        } else {
+          updateTimerDisplay();
+        }
+      }, 1000);
+    }
+    
+    function updateTimerDisplay() {
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      
+      timerDisplay.textContent = 
+        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+    
+    function timerComplete() {
+      timerDisplay.textContent = '00:00:00';
+      timerDisplay.classList.add('timer-complete');
+      
+      setTimeout(() => {
+        timerDisplay.classList.remove('active', 'timer-complete');
+        timerInput.classList.remove('hidden');
+        
+        // Reset inputs
+        hoursInput.value = '';
+        minutesInput.value = '';
+      }, 3000);
+    }
+
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      // Rotate globe only when timer is active
+      if (globeRotationActive) {
+        earthGroup.rotation.y += 0.002;
+        clouds.rotation.y += 0.0021; // Slightly different speed for clouds
+      }
+      
+      // Animate stars (twinkling effect)
+      const time = Date.now() * 0.0005;
+      const starSizes = stars.geometry.attributes.size;
+      const starVelocities = stars.geometry.attributes.velocity;
+      
+      for (let i = 0; i < starSizes.count; i++) {
+        // Simple pulsing effect for twinkling
+        starSizes.array[i] = 0.5 + Math.abs(Math.sin(time + i) * starVelocities.array[i] * 50);
+      }
+      
+      starSizes.needsUpdate = true;
+      
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Handle window resize
+    function handleResize() {
+      const container = document.getElementById('globe-container');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+    }
+    
+    window.addEventListener("resize", handleResize);
+    
+    // Initial setup
+    handleResize();
+    earthGroup.rotation.y = -0.5;
+  </script>
+</body>
+</html>
