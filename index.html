@@ -300,7 +300,7 @@
   <script>
     // Initialize variables
     let globeRotationActive = false;
-    let countdownInterval;
+    //let countdownInterval;
     let totalSeconds = 0;
     let notificationPermission = false;
     
@@ -475,42 +475,42 @@
     
     startBtn.addEventListener('click', startTimer);
     
-    function startTimer() {
-      // Get input values
-      const hours = parseInt(hoursInput.value) || 0;
-      const minutes = parseInt(minutesInput.value) || 0;
-      
-      // Calculate total seconds
-      totalSeconds = hours * 3600 + minutes * 60;
-      
-      if (totalSeconds <= 0) {
-        alert('Please enter a valid time!');
-        return;
-      }
-      
-      // Start the globe rotation
-      globeRotationActive = true;
-      
-      // Hide input form and show timer display
-      timerInput.classList.add('hidden');
-      timerDisplay.classList.add('active');
-      
-      // Update timer display immediately
+    let countdownInterval;
+let endTime;
+
+function startTimer() {
+  const hours = parseInt(hoursInput.value) || 0;
+  const minutes = parseInt(minutesInput.value) || 0;
+
+  totalSeconds = hours * 3600 + minutes * 60;
+  if (totalSeconds <= 0) {
+    alert('Please enter a valid time!');
+    return;
+  }
+
+  globeRotationActive = true;
+  timerInput.classList.add('hidden');
+  timerDisplay.classList.add('active');
+
+  // Use actual end timestamp
+  endTime = Date.now() + totalSeconds * 1000;
+
+  updateTimerDisplay();
+
+  countdownInterval = setInterval(() => {
+    const now = Date.now();
+    totalSeconds = Math.max(0, Math.round((endTime - now) / 1000));
+
+    if (totalSeconds <= 0) {
+      clearInterval(countdownInterval);
+      globeRotationActive = false;
+      timerComplete();
+    } else {
       updateTimerDisplay();
-      
-      // Start countdown
-      countdownInterval = setInterval(() => {
-        totalSeconds--;
-        
-        if (totalSeconds <= 0) {
-          clearInterval(countdownInterval);
-          globeRotationActive = false;
-          timerComplete();
-        } else {
-          updateTimerDisplay();
-        }
-      }, 1000);
     }
+  }, 1000);
+}
+
     
     function updateTimerDisplay() {
       const hours = Math.floor(totalSeconds / 3600);
