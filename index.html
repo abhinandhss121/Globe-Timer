@@ -54,6 +54,42 @@
       max-width: 500px;
     }
     
+    /* Session info display */
+    .session-info {
+      position: absolute;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 20;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px 20px;
+      border-radius: 10px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      font-size: 18px;
+    }
+    
+    .session-info.visible {
+      opacity: 1;
+    }
+    
+    /* Visitor count display */
+    .visitor-count {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 8px 15px;
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 16px;
+      z-index: 30;
+    }
+    
     /* Notification permission button */
     .notification-permission {
       position: absolute;
@@ -232,6 +268,19 @@
         font-size: 12px;
         padding: 8px 12px;
       }
+      
+      .session-info {
+        bottom: 50px;
+        font-size: 16px;
+        padding: 8px 15px;
+      }
+      
+      .visitor-count {
+        top: 10px;
+        left: 10px;
+        font-size: 14px;
+        padding: 6px 12px;
+      }
     }
     
     @media (max-width: 480px) {
@@ -262,6 +311,12 @@
         font-size: 70px;
         padding: 20px 30px;
       }
+      
+      .session-info {
+        font-size: 14px;
+        padding: 6px 12px;
+        bottom: 45px;
+      }
     }
   </style>
 </head>
@@ -288,6 +343,8 @@
       <div class="timer-display" id="timerDisplay">00:00:00</div>
     </div>
     
+    <div class="session-info" id="sessionInfo">Time spent: 0 minutes</div>
+    <div class="visitor-count" id="visitorCount">: 1</div>
     <div class="notification-permission" id="notification-permission">
       Enable Notifications
     </div>
@@ -300,9 +357,65 @@
   <script>
     // Initialize variables
     let globeRotationActive = false;
-    //let countdownInterval;
+    let countdownInterval;
     let totalSeconds = 0;
     let notificationPermission = false;
+    let timerStartTime = 0;
+    let sessionStartTime = 0;
+    let totalSessionTime = 0;
+    let visitorCount = 1;
+    
+    // Initialize session info and visitor count
+    const sessionInfo = document.getElementById('sessionInfo');
+    const visitorCountElement = document.getElementById('visitorCount');
+    
+    // Load visitor count from localStorage or initialize
+    function initializeVisitorCount() {
+      if (localStorage.getItem('visitorCount')) {
+        visitorCount = parseInt(localStorage.getItem('visitorCount'));
+      } else {
+        visitorCount = 1;
+        localStorage.setItem('visitorCount', visitorCount);
+      }
+      
+      // Check if this is a new session
+      if (!sessionStorage.getItem('hasVisited')) {
+        visitorCount++;
+        localStorage.setItem('visitorCount', visitorCount);
+        sessionStorage.setItem('hasVisited', 'true');
+      }
+      
+      visitorCountElement.textContent = `Visitors: ${visitorCount}`;
+    }
+    
+    // Format time in hours and minutes
+    function formatTimeSpent(minutes) {
+      if (minutes < 60) {
+        return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+      } else {
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+        if (remainingMinutes === 0) {
+          return `${hours} hour${hours !== 1 ? 's' : ''}`;
+        } else {
+          return `${hours} hour${hours !== 1 ? 's' : ''} ${remainingMinutes} minute${remainingMinutes !== 1 ? 's' : ''}`;
+        }
+      }
+    }
+    
+    // Update session info display
+    function updateSessionInfo() {
+      const minutes = Math.floor(totalSessionTime / 60);
+      sessionInfo.textContent = `Time spent: ${formatTimeSpent(minutes)}`;
+    }
+    
+    // Show session info
+    function showSessionInfo() {
+      sessionInfo.classList.add('visible');
+      setTimeout(() => {
+        sessionInfo.classList.remove('visible');
+      }, 5000);
+    }
     
     // Request notification permission
     const notificationPermissionBtn = document.getElementById('notification-permission');
@@ -475,42 +588,63 @@
     
     startBtn.addEventListener('click', startTimer);
     
-    let countdownInterval;
-let endTime;
-
-function startTimer() {
-  const hours = parseInt(hoursInput.value) || 0;
-  const minutes = parseInt(minutesInput.value) || 0;
-
-  totalSeconds = hours * 3600 + minutes * 60;
-  if (totalSeconds <= 0) {
-    alert('Please enter a valid time!');
-    return;
-  }
-
-  globeRotationActive = true;
-  timerInput.classList.add('hidden');
-  timerDisplay.classList.add('active');
-
-  // Use actual end timestamp
-  endTime = Date.now() + totalSeconds * 1000;
-
-  updateTimerDisplay();
-
-  countdownInterval = setInterval(() => {
-    const now = Date.now();
-    totalSeconds = Math.max(0, Math.round((endTime - now) / 1000));
-
-    if (totalSeconds <= 0) {
-      clearInterval(countdownInterval);
-      globeRotationActive = false;
-      timerComplete();
-    } else {
+    function startTimer() {
+      // Get input values
+      const hours = parseInt(hoursInput.value) || 0;
+      const minutes = parseInt(minutesInput.value) || 0;
+      
+      // Calculate total seconds
+      totalSeconds = hours * 3600 + minutes * 60;
+      
+      if (totalSeconds <= 0) {
+        alert('Please enter a valid time!');
+        return;
+      }
+      
+      // Start the globe rotation
+      globeRotationActive = true;
+      
+      // Record the start time
+      timerStartTime = Date.now();
+      sessionStartTime = Date.now();
+      
+      // Show session info at start
+      showSessionInfo();
+      
+      // Hide input form and show timer display
+      timerInput.classList.add('hidden');
+      timerDisplay.classList.add('active');
+      
+      // Update timer display immediately
       updateTimerDisplay();
+      
+      // Clear any existing interval
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+      }
+      
+      // Start countdown with precise timing
+      countdownInterval = setInterval(() => {
+        const currentTime = Date.now();
+        const elapsedTime = Math.floor((currentTime - timerStartTime) / 1000);
+        const remainingSeconds = totalSeconds - elapsedTime;
+        
+        if (remainingSeconds <= 0) {
+          clearInterval(countdownInterval);
+          globeRotationActive = false;
+          
+          // Update total session time
+          const sessionEndTime = Date.now();
+          totalSessionTime += Math.floor((sessionEndTime - sessionStartTime) / 1000);
+          updateSessionInfo();
+          
+          timerComplete();
+        } else {
+          // Update the display with the remaining time
+          updateTimerDisplayWithSeconds(remainingSeconds);
+        }
+      }, 200); // Check more frequently for better accuracy
     }
-  }, 1000);
-}
-
     
     function updateTimerDisplay() {
       const hours = Math.floor(totalSeconds / 3600);
@@ -521,9 +655,21 @@ function startTimer() {
         `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
     
+    function updateTimerDisplayWithSeconds(seconds) {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+      
+      timerDisplay.textContent = 
+        `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    
     function timerComplete() {
       timerDisplay.textContent = '00:00:00';
       timerDisplay.classList.add('timer-complete');
+      
+      // Show session info at completion
+      showSessionInfo();
       
       // Show desktop notification
       showTimerCompleteNotification();
@@ -580,6 +726,24 @@ function startTimer() {
     // Initial setup
     handleResize();
     earthGroup.rotation.y = -0.5;
+    
+    // Initialize visitor count
+    initializeVisitorCount();
+    
+    // Load total session time from localStorage if available
+    if (localStorage.getItem('totalSessionTime')) {
+      totalSessionTime = parseInt(localStorage.getItem('totalSessionTime'));
+      updateSessionInfo();
+    }
+    
+    // Save total session time before page unload
+    window.addEventListener('beforeunload', () => {
+      if (globeRotationActive) {
+        const currentTime = Date.now();
+        totalSessionTime += Math.floor((currentTime - sessionStartTime) / 1000);
+      }
+      localStorage.setItem('totalSessionTime', totalSessionTime);
+    });
     
     // Check if notifications are already granted
     if ('Notification' in window && Notification.permission === 'granted') {
