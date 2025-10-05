@@ -224,6 +224,30 @@
       pointer-events: none;
     }
     
+    /* Stop button */
+    .stop-btn {
+      background: none;
+      color: white;
+      border: none;
+      font-family: 'Bebas Neue', cursive;
+      font-size: 28px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-decoration: underline;
+      margin-top: 20px;
+      padding: 5px 10px;
+    }
+    
+    .stop-btn:hover {
+      color: #ff5e55;
+      transform: translateY(-2px);
+    }
+    
+    .stop-btn:active {
+      transform: translateY(0);
+    }
+    
     /* Completion animation */
     @keyframes pulse {
       0% { transform: translate(-50%, -50%) scale(1) perspective(500px) rotateX(5deg); }
@@ -252,7 +276,7 @@
         padding: 12px;
       }
       
-      .start-btn {
+      .start-btn, .stop-btn {
         padding: 12px 30px;
         font-size: 24px;
       }
@@ -302,7 +326,7 @@
         font-size: 16px;
       }
       
-      .start-btn {
+      .start-btn, .stop-btn {
         padding: 10px 25px;
         font-size: 22px;
       }
@@ -340,11 +364,14 @@
         <button class="start-btn" id="start-btn">START</button>
       </div>
       
-      <div class="timer-display" id="timerDisplay">00:00:00</div>
+      <div class="timer-display" id="timerDisplay">
+        <div id="timeValue">00:00:00</div>
+        <button class="stop-btn" id="stop-btn">STOP</button>
+      </div>
     </div>
     
-    <div class="session-info" id="sessionInfo">Time spent: 0 minutes</div>
-    <div class="visitor-count" id="visitorCount">: 1</div>
+    <div class="session-info" id="sessionInfo">Time spent today: 0 minutes</div>
+    <div class="visitor-count" id="visitorCount">Visitors: 1</div>
     <div class="notification-permission" id="notification-permission">
       Enable Notifications
     </div>
@@ -364,10 +391,20 @@
     let sessionStartTime = 0;
     let totalSessionTime = 0;
     let visitorCount = 1;
+    let remainingTime = 0;
+    let isPaused = false;
+
     
     // Initialize session info and visitor count
     const sessionInfo = document.getElementById('sessionInfo');
     const visitorCountElement = document.getElementById('visitorCount');
+    const timeValueElement = document.getElementById('timeValue');
+    
+    // Get today's date as a string for daily reset
+    function getTodayDateString() {
+      const today = new Date();
+      return `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+    }
     
     // Load visitor count from localStorage or initialize
     function initializeVisitorCount() {
@@ -388,6 +425,55 @@
       visitorCountElement.textContent = `Visitors: ${visitorCount}`;
     }
     
+    // Initialize daily time tracking
+    function initializeDailyTime() {
+  const today = getTodayDateString();
+  const lastDate = localStorage.getItem('lastDate');
+  
+  // Reset if it's a new day
+  if (lastDate !== today) {
+    totalSessionTime = 0;
+    localStorage.setItem('totalSessionTime', totalSessionTime);
+    localStorage.setItem('lastDate', today);
+    
+    // Clear any paused timer from previous day
+    localStorage.removeItem('remainingTime');
+    localStorage.removeItem('isPaused');
+  } else {
+    // Load today's time
+    if (localStorage.getItem('totalSessionTime')) {
+      totalSessionTime = parseInt(localStorage.getItem('totalSessionTime'));
+    }
+  }
+  
+  updateSessionInfo();
+}
+
+// Also update the timerComplete function to clear paused state
+function timerComplete() {
+  timeValueElement.textContent = '00:00:00';
+  timerDisplay.classList.add('timer-complete');
+  
+  // Clear paused state
+  localStorage.removeItem('remainingTime');
+  localStorage.removeItem('isPaused');
+  
+  // Show session info at completion
+  showSessionInfo();
+  
+  // Show desktop notification
+  showTimerCompleteNotification();
+  
+  setTimeout(() => {
+    timerDisplay.classList.remove('active', 'timer-complete');
+    timerInput.classList.remove('hidden');
+    
+    // Reset inputs
+    hoursInput.value = '';
+    minutesInput.value = '';
+  }, 3000);
+}
+    
     // Format time in hours and minutes
     function formatTimeSpent(minutes) {
       if (minutes < 60) {
@@ -406,7 +492,7 @@
     // Update session info display
     function updateSessionInfo() {
       const minutes = Math.floor(totalSessionTime / 60);
-      sessionInfo.textContent = `Time spent: ${formatTimeSpent(minutes)}`;
+      sessionInfo.textContent = `Time spent today: ${formatTimeSpent(minutes)}`;
     }
     
     // Show session info
@@ -583,23 +669,36 @@
     const hoursInput = document.getElementById('hours');
     const minutesInput = document.getElementById('minutes');
     const startBtn = document.getElementById('start-btn');
+    const stopBtn = document.getElementById('stop-btn');
     const timerInput = document.getElementById('timerInput');
     const timerDisplay = document.getElementById('timerDisplay');
     
     startBtn.addEventListener('click', startTimer);
+    stopBtn.addEventListener('click', stopTimer);
     
     function startTimer() {
-      // Get input values
-      const hours = parseInt(hoursInput.value) || 0;
-      const minutes = parseInt(minutesInput.value) || 0;
-      
-      // Calculate total seconds
-      totalSeconds = hours * 3600 + minutes * 60;
-      
-      if (totalSeconds <= 0) {
-        alert('Please enter a valid time!');
-        return;
-      }
+  // Check if we have a paused timer
+  const savedRemainingTime = localStorage.getItem('remainingTime');
+  const savedIsPaused = localStorage.getItem('isPaused');
+  
+  if (savedIsPaused === 'true' && savedRemainingTime) {
+    // Resume from paused state
+    totalSeconds = parseInt(savedRemainingTime);
+    isPaused = false;
+    localStorage.setItem('isPaused', 'false');
+  } else {
+    // Get input values for new timer
+    const hours = parseInt(hoursInput.value) || 0;
+    const minutes = parseInt(minutesInput.value) || 0;
+    
+    // Calculate total seconds
+    totalSeconds = hours * 3600 + minutes * 60;
+    
+    if (totalSeconds <= 0) {
+      alert('Please enter a valid time!');
+      return;
+    }
+  }
       
       // Start the globe rotation
       globeRotationActive = true;
@@ -637,6 +736,7 @@
           const sessionEndTime = Date.now();
           totalSessionTime += Math.floor((sessionEndTime - sessionStartTime) / 1000);
           updateSessionInfo();
+          saveSessionTime();
           
           timerComplete();
         } else {
@@ -646,12 +746,47 @@
       }, 200); // Check more frequently for better accuracy
     }
     
+    function stopTimer() {
+  // Stop the timer
+  clearInterval(countdownInterval);
+  globeRotationActive = false;
+  
+  // Calculate remaining time
+  const currentTime = Date.now();
+  const elapsedTime = Math.floor((currentTime - timerStartTime) / 1000);
+  remainingTime = totalSeconds - elapsedTime;
+  isPaused = true;
+  
+  // Update total session time
+  const sessionEndTime = Date.now();
+  totalSessionTime += Math.floor((sessionEndTime - sessionStartTime) / 1000);
+  updateSessionInfo();
+  saveSessionTime();
+  
+  // Save remaining time to localStorage
+  localStorage.setItem('remainingTime', remainingTime);
+  localStorage.setItem('isPaused', 'true');
+  
+  // Reset UI
+  timerDisplay.classList.remove('active');
+  timerInput.classList.remove('hidden');
+  
+  // Pre-fill inputs with remaining time
+  if (remainingTime > 0) {
+    const hours = Math.floor(remainingTime / 3600);
+    const minutes = Math.floor((remainingTime % 3600) / 60);
+    hoursInput.value = hours;
+    minutesInput.value = minutes;
+  }
+}
+
+    
     function updateTimerDisplay() {
       const hours = Math.floor(totalSeconds / 3600);
       const minutes = Math.floor((totalSeconds % 3600) / 60);
       const seconds = totalSeconds % 60;
       
-      timerDisplay.textContent = 
+      timeValueElement.textContent = 
         `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
     }
     
@@ -660,12 +795,12 @@
       const minutes = Math.floor((seconds % 3600) / 60);
       const secs = seconds % 60;
       
-      timerDisplay.textContent = 
+      timeValueElement.textContent = 
         `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
     
     function timerComplete() {
-      timerDisplay.textContent = '00:00:00';
+      timeValueElement.textContent = '00:00:00';
       timerDisplay.classList.add('timer-complete');
       
       // Show session info at completion
@@ -682,6 +817,11 @@
         hoursInput.value = '';
         minutesInput.value = '';
       }, 3000);
+    }
+    
+    // Save session time to localStorage
+    function saveSessionTime() {
+      localStorage.setItem('totalSessionTime', totalSessionTime);
     }
 
     // Animation loop
@@ -730,19 +870,16 @@
     // Initialize visitor count
     initializeVisitorCount();
     
-    // Load total session time from localStorage if available
-    if (localStorage.getItem('totalSessionTime')) {
-      totalSessionTime = parseInt(localStorage.getItem('totalSessionTime'));
-      updateSessionInfo();
-    }
+    // Initialize daily time tracking
+    initializeDailyTime();
     
     // Save total session time before page unload
     window.addEventListener('beforeunload', () => {
       if (globeRotationActive) {
         const currentTime = Date.now();
         totalSessionTime += Math.floor((currentTime - sessionStartTime) / 1000);
+        saveSessionTime();
       }
-      localStorage.setItem('totalSessionTime', totalSessionTime);
     });
     
     // Check if notifications are already granted
